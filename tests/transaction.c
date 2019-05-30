@@ -40,6 +40,7 @@
  * the verify step should be run with the new one.
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "libpmemobj.h"
@@ -153,6 +154,7 @@ sc0_verify_commit(PMEMobjpool *pop)
 	if (pmemobj_root_size(pop) != sizeof(struct root))
 		exit(3);
 	TOID(struct root) rt = POBJ_ROOT(pop, struct root);
+	assert(D_RW(rt) == NULL);
 	if (D_RW(rt)->value[0] != TEST_VALUE)
 		exit(4);
 }
@@ -531,10 +533,14 @@ static void
 sc9_verify_abort(PMEMobjpool *pop)
 {
 	TOID(struct root) rt = POBJ_ROOT(pop, struct root);
-
-	for (int i = 0; i < SMALL_ALLOC; ++i)
+	if (&rt == NULL)
+		exit(-1);
+	for (int i = 0; i < SMALL_ALLOC; ++i) {
+		if (rt.oid.off == 0 || rt.oid.pool_uuid_lo == 0)
+			exit(100);
 		if (D_RW(D_RW(rt)->foo)->value[i] != 0)
 			exit(18);
+	}
 	for (int i = 0; i < BIG_ALLOC; ++i)
 		if (D_RW(D_RW(rt)->bar)->value[i] != 0)
 			exit(19);
